@@ -8,9 +8,6 @@ import {
   Volume2,
   Star,
   ShoppingCart,
-  Users,
-  Award,
-  Zap,
   Shield,
 } from "lucide-react";
 
