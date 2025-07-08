@@ -1,0 +1,59 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 21.6.0
+
+      - name: Build Frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Upload to GCS
+        run: |
+          gcloud storage rm -r gs://${{ secrets.FRONTEND_BUCKET }}/assets/ || true
+          gcloud storage rm -r gs://${{ secrets.FRONTEND_BUCKET }}/logo/ || true
+          gcloud storage rm gs://${{ secrets.FRONTEND_BUCKET }}/index.html || true
+
+          gcloud storage cp -r ./dist/* gs://${{ secrets.FRONTEND_BUCKET }}/
+
+          gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" gs://${{ secrets.FRONTEND_BUCKET }}/**
+
+      - name: Set Public Read Access
+        run: |
+          gcloud storage buckets add-iam-policy-binding gs://${{ secrets.FRONTEND_BUCKET }} \
+            --member="allUsers" \
+            --role="roles/storage.objectViewer"
+
+          gcloud storage buckets add-iam-policy-binding gs://${{ secrets.FRONTEND_BUCKET }} \
+            --member="serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT }}" \
+            --role="roles/storage.admin"
+
+      - name: Configure GCS for SPA Routing
+        run: |
+          gcloud storage buckets update gs://${{ secrets.FRONTEND_BUCKET }} \
+            --web-main-page-suffix=index.html --web-error-page=index.html
