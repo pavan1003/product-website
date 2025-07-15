@@ -31,7 +31,7 @@ jobs:
       - name: Build Frontend
         run: |
           npm install
-          npm run build
+          VITE_API_URL=${{ secrets.VITE_API_URL }} npm run build
 
       - name: Upload to GCS
         run: |
